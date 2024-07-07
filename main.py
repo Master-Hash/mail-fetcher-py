@@ -17,6 +17,13 @@ elif os.name == "posix":
     import uvloop
 
 
+def clean(s: str | None) -> str | None:
+    if s is None:
+        return None
+    _s = s.strip("\r\n\t").strip("\r\n ")
+    return _s.replace("\r\n\t", " ").replace("\r\n ", " ")
+
+
 async def check_mailbox(host: str, user: str, password: str):
     imap_client = aioimaplib.IMAP4_SSL(host)
     try:
@@ -80,8 +87,8 @@ async def rw(client: aioimaplib.IMAP4_SSL, box: str):
                         _msg_id,
                         sha,
                         parsedate_to_datetime(j["Date"]).timestamp(),
-                        j["In-Reply-To"],
-                        j["Subject"],
+                        clean(j["In-Reply-To"]),
+                        clean(j["Subject"]),
                         dumps({"name": from_person[0], "address": from_person[1]}),
                         dumps([
                             {"name": i[0], "address": i[1]} for i in all_recipients
