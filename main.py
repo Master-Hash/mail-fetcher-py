@@ -1,5 +1,6 @@
 import asyncio
 import os
+import re
 from email import message_from_bytes
 from email.utils import getaddresses, parseaddr, parsedate_to_datetime
 from hashlib import sha256
@@ -58,9 +59,13 @@ async def rw(client: aioimaplib.IMAP4_SSL, box: str):
     async with asyncio.TaskGroup() as tg:
         for email in emails:
             i, j = email
+            msg_id = j["Message-ID"]
+            if len(set(msg_id) & set("\t\n\r ")) != 0:
+                print("Python Parser sucks")
+            _msg_id = re.search(r"<.+?>", msg_id)[0]
             from_person = parseaddr(j["From"])
             all_recipients = getaddresses(j.get_all("To", []) + j.get_all("Cc", []))
-            sha = sha256(j["Message-ID"].encode()).hexdigest()
+            sha = sha256(_msg_id.encode()).hexdigest()
             # boto3 is not async
             # s3_client.upload_fileobj(
             #     io.BytesIO(j.as_bytes()), "assets", f"discuss/{sha}.eml"
@@ -72,7 +77,7 @@ async def rw(client: aioimaplib.IMAP4_SSL, box: str):
                     sql="INSERT OR IGNORE INTO GlobalMessages (Folder, MessageID, MessageIDHash, Epoch, InReplyTo, SubjectLine, Author, Recipients, RAWMessage, FolderSerial) VALUES (?,?,?,?,?,?,?,?,?,?)",
                     params=[
                         box,
-                        j["Message-ID"],
+                        _msg_id,
                         sha,
                         parsedate_to_datetime(j["Date"]).timestamp(),
                         j["In-Reply-To"],
@@ -107,12 +112,14 @@ async def rw(client: aioimaplib.IMAP4_SSL, box: str):
             )
         )
         for i, j in emails:
+            msg_id = j["Message-ID"]
+            _msg_id = re.search(r"<.+?>", msg_id)[0]
             tg.create_task(
                 cf_client.d1.database.query(
                     database_id=config["CF_DB_ID"],
                     account_id=config["CF_ACCOUNT_ID"],
                     sql="DELETE FROM GlobalMessages WHERE Folder = ? AND MessageID = ? AND FolderSerial <> ?",
-                    params=[box, j["Message-ID"], str(i)],
+                    params=[box, _msg_id, str(i)],
                 )
             )
 
