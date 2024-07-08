@@ -125,7 +125,7 @@ async def rw(client: aioimaplib.IMAP4_SSL, box: str):
                 cf_client.d1.database.query(
                     database_id=config["CF_DB_ID"],
                     account_id=config["CF_ACCOUNT_ID"],
-                    sql="DELETE FROM GlobalMessages WHERE Folder = ? AND MessageID = ? AND FolderSerial <> ?",
+                    sql="DELETE FROM GlobalMessages WHERE Folder = ? AND MessageID <> ? AND FolderSerial = ?",
                     params=[box, _msg_id, str(i)],
                 )
             )
